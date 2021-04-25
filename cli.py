@@ -21,6 +21,10 @@ def main():
     elif command == 'X':
         quit()
 
+<<<<<<< HEAD
+=======
+# @loop_command
+>>>>>>> 802b580c3565c9166290289a29b45cdeeb0b1409
 @main.command()
 @click.option('--username',prompt = 'Enter your Email')
 @click.option('--password',prompt = 'Enter your Password')
@@ -29,9 +33,15 @@ def login(username, password):
                         method = 'POST',
                         data = {'inputEmail':username,'inputPassword':password}
                         )
+<<<<<<< HEAD
 
 
 
+=======
+
+
+
+>>>>>>> 802b580c3565c9166290289a29b45cdeeb0b1409
     error = json.loads(response.text)['error']
     token = json.loads(response.text)['data'] 
     if error:
@@ -44,6 +54,10 @@ def login(username, password):
     f.write(token)
     f.close()
 
+<<<<<<< HEAD
+=======
+# @loop_command
+>>>>>>> 802b580c3565c9166290289a29b45cdeeb0b1409
 @main.command()
 def get_profile():
     token = open("token.txt")
@@ -56,6 +70,32 @@ def get_profile():
 
 
 
+<<<<<<< HEAD
+=======
+
+
+if __name__ == '__main__':
+    main()
+
+# error = True
+# while error:
+#     email = input('Enter Your Email: ')
+#     password = input('Enter Your Password: ')
+#     response = requests.post(url='http://127.0.0.1:5000/auth/login', 
+#                         data = {'inputEmail':email,'inputPassword':password}
+#                             )
+
+#     error = json.loads(response.text)['error']
+#     token = json.loads(response.text)['data'] 
+#     retry = input('RETRY? y/n')
+#     if retry =='n':
+#         break
+# token_file = open("myfile.txt", "w")
+# token_file.write(token)
+# token_file.close
+
+
+>>>>>>> 802b580c3565c9166290289a29b45cdeeb0b1409
 
 
 if __name__ == '__main__':
