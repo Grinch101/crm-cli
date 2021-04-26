@@ -6,20 +6,8 @@ import click
     
 @click.group()
 def main():
-    command = input('''
-                -> Enter command:
-                P : to get user's profile
-                C : to add contact
-                L : to login
-                X : EXIT
-                ''')
 
-    if command == 'L':
-        login()
-    elif command == 'P':
-        get_profile()
-    elif command == 'X':
-        quit()
+    pass
 
 @main.command()
 @click.option('--username',prompt = 'Enter your Email')
@@ -29,8 +17,6 @@ def login(username, password):
                         method = 'POST',
                         data = {'inputEmail':username,'inputPassword':password}
                         )
-
-
 
     error = json.loads(response.text)['error']
     token = json.loads(response.text)['data'] 
@@ -43,15 +29,24 @@ def login(username, password):
     f = open("token.txt", "w")
     f.write(token)
     f.close()
+    print('\nTOKEN SAVED\n**** \nYou have successfully logged in!')
+    
+
+
 
 @main.command()
 def get_profile():
-    token = open("token.txt")
+    with open("token.txt") as f:
+        token = f.read()
     response = requests.request(method='GET',
                     url = 'http://127.0.0.1:5000/auth/current_user',
-                    headers={'JWT':token})
-    
-    print(json.load(response.text)['data'])
+                    headers={'JWT':str(token)}
+                    )
+    data = json.loads(response.text)['data']
+    current_user = data['client_name']
+    email = data['email']
+
+    print(f'\ncurrent user: \nname :{current_user}\nemail:{email}')
 
 
 
