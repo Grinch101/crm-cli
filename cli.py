@@ -25,21 +25,25 @@ def extract_response(response):
     error = json.loads(response.text)['error']
     info = json.loads(response.text)['info']
     if error is not None:
-        print('++++++ there was an error !!! ++++++')
-        raise Exception(f'Command Failed!:\n{error}')
+        raise Exception(f'\nCOMMAND FAILED!!!\n{error}')
     return info, data, error
 
 
 def plotter(data, info, data_as_list=False):
     table = PrettyTable()
-    if data_as_list is False:
-        table.field_names = list(data.keys())
-        table.add_row(list(data.values()))
-    elif data_as_list is True:
-        table.field_names = list(data[0].keys())
-        for i in range(len(data)):
-            table.add_row(list(data[i].values()))
-    print(table.get_string(title=f"{info}"))
+    if len(data) > 0:
+        if data_as_list is False:
+            table.field_names = list(data.keys())
+            table.add_row(list(data.values()))
+        elif data_as_list is True:
+            table.field_names = list(data[0].keys())
+            for i in range(len(data)):
+                table.add_row(list(data[i].values()))
+        print(table.get_string(title=f"{info}"))
+    else:
+        table.field_names = ['ERORR']
+        print(table.get_string(title=f"{info}"))
+    
 
 
 @click.group()
@@ -52,15 +56,15 @@ def signup():
     '''
     Register a user
     '''
-    inputEmail = input('Enter Your Email: ')
-    inputPassword1 = getpass('Enter Your Password: ')
-    inputPassword2 = getpass('Confirm Your Password: ')
+    inputEmail = click.prompt('Enter Your Email ')
+    inputPassword1 = getpass('Enter Your Password ')
+    inputPassword2 = getpass('Confirm Your Password ')
     if inputPassword1 != inputPassword2:
         print('Passwords are mismatched!')
         print('please retry')
         quit()
     elif inputPassword1 == inputPassword2:
-        client_name = input('Enter your name: ')
+        client_name = click.prompt('Enter your name ')
         data = {'inputEmail': inputEmail,
                 'inputPassword': inputPassword2,
                 'client_name': client_name}
@@ -76,17 +80,19 @@ def login():
     '''
     Login and generate token
     '''
-    username = input('Enter your Email: ')
-    password = getpass('Enter your password: ')
+    username = click.prompt('Enter your Email')
+    password = getpass('Enter your password')
     response = requests.request(url='http://127.0.0.1:5000/auth/login',
                                 method='POST',
                                 data={'inputEmail': username,
-                                      'inputPassword': password})
-
+                                      'inputPassword': password
+                                      }
+                                      )
+                                      
     info, data, error = extract_response(response)
     if error:
         print(f'{error}')
-        retry = input('RETRY? y/n ')
+        retry = click.prompt('RETRY? y/n ')
         if retry.lower() == 'y':
             main()['login']
         if retry.lower() == 'n':
@@ -110,6 +116,7 @@ def get_profile(token):
                                 )
     info, data, error = extract_response(response)
     plotter(data, info)
+    return data
 
 
 @main.command()
@@ -148,8 +155,13 @@ def update_user(token):
     """
     Update username and password
     """
-    new_email = input('Enter Your new Email ')
-    new_name = input('Enter your new username ')
+    response = requests.request(method='GET',
+                                url='http://127.0.0.1:5000/auth/current_user',
+                                headers={'JWT': token}
+                                )
+    info, old_data, error = extract_response(response)
+    new_email = click.prompt('Enter Your new Email ', default = f'{old_data["email"]}')
+    new_name = click.prompt('Enter your new username ', default = f'{old_data["client_name"]}')
     new_password = getpass('Enter Your new password ')
     data_dic = {}
     if new_name is not None:
@@ -158,11 +170,9 @@ def update_user(token):
         data_dic['new_email'] = new_email
     if new_password is not None:
         data_dic['new_password'] = new_password
-
     response = requests.put(url='http://127.0.0.1:5000/auth/user_update',
                             headers={'JWT': token},
                             data=data_dic)
-
     info, data, error = extract_response(response)
     plotter(data, info)
 
@@ -191,7 +201,7 @@ def delete_contact(token, contact_id):
         method='DELETE',
         url=f'http://127.0.0.1:5000/contacts/delete/{contact_id}',
         headers={'JWT': token}
-    )
+        )
     info, data, error = extract_response(response)
     plotter(data, info)
 
