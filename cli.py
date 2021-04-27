@@ -24,7 +24,6 @@ def extract_response(response):
     data = json.loads(response.text)['data']
     error = json.loads(response.text)['error']
     info = json.loads(response.text)['info']
-    print(type(data))
     if error is not None:
         print('++++++ there was an error !!! ++++++')
         raise Exception(f'Command Failed!:\n{error}')
@@ -33,10 +32,10 @@ def extract_response(response):
 
 def plotter(data, info, data_as_list=False):
     table = PrettyTable()
-    if data_as_list == False:
+    if data_as_list is False:
         table.field_names = list(data.keys())
         table.add_row(list(data.values()))
-    elif data_as_list == True:
+    elif data_as_list is True:
         table.field_names = list(data[0].keys())
         for i in range(len(data)):
             table.add_row(list(data[i].values()))
@@ -182,54 +181,61 @@ def get_all_contacts(token):
 
 
 @main.command()
-@click.option('--contact_id', prompt = 'Enter contact id to delete')
+@click.option('--contact_id', prompt='Enter contact id to delete')
 @login_required
 def delete_contact(token, contact_id):
     '''
     Delete a contact with the given ID
     '''
-    response = requests.request(method='DELETE',
-                              url = f'http://127.0.0.1:5000/contacts/delete/{contact_id}',
-                            #   params = {'id':contact_id},
-                              headers = {'JWT':token}
-                              )
+    response = requests.request(
+        method='DELETE',
+        url=f'http://127.0.0.1:5000/contacts/delete/{contact_id}',
+        headers={'JWT': token}
+    )
     info, data, error = extract_response(response)
     plotter(data, info)
 
 
 @main.command()
-@click.option('--contact_id', prompt = 'Enter contact id to get all activities associated with')
+@click.option('--contact_id',
+              prompt="Get contact's id to get activities associated with")
 @login_required
 def get_all_activity(token, contact_id):
     '''
     Retrieve all activites associated with a contact
     '''
-    response = requests.get(url = f'http://127.0.0.1:5000/activity/{contact_id}',
-                            headers = {'JWT':token})
+    response = requests.get(
+        url=f'http://127.0.0.1:5000/activity/{contact_id}',
+        headers={'JWT': token}
+        )
     info, data, error = extract_response(response)
-    plotter(data, info, data_as_list = True)
+    plotter(data, info, data_as_list=True)
 
 
 @main.command()
-@click.option('--contact_id', prompt = 'Enter contact id to add activity to: ')
-@click.option('--action', prompt = "Enter action's Type: ")
-@click.option('--description',default = "", prompt = 'Enter any description (optional): ')
-@click.option('--date', prompt = "Enter data in format: yyyy-mm-dd: ")
-@click.option('--time', prompt = "Enter time in format: hh:mm: ")
+@click.option('--contact_id', prompt='Enter contact id to add activity to: ')
+@click.option('--action', prompt="Enter action's Type: ")
+@click.option('--description', default="",
+              prompt='Enter any description (optional): ')
+@click.option('--date', prompt="Enter data in format: yyyy-mm-dd: ")
+@click.option('--time', prompt="Enter time in format: hh:mm: ")
 @login_required
 def add_activity(token, contact_id, action, description, date, time):
     '''
     Add an activity to a contact
     '''
-    response = requests.post(url = f'http://127.0.0.1:5000/activity/{contact_id}',
-                            headers = {'JWT':token},
-                            data = {'action':action,
-                                    'description':description,
-                                    'date':date,
-                                    'time':time})
+    response = requests.post(
+        url=f'http://127.0.0.1:5000/activity/{contact_id}',
+        headers={'JWT': token},
+        data={'action': action,
+              'description': description,
+              'date': date,
+              'time': time
+              }
+        )
     info, data, error = extract_response(response)
     plotter(data, info)
-            
+
 
 if __name__ == '__main__':
     main()
