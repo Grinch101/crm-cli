@@ -1,7 +1,10 @@
 from functools import wraps
+from stdiomask import getpass
+from prettytable import PrettyTable, from_db_cursor
 import requests
 import json
 import click
+import asis
 
 
 def login_required(func):
@@ -11,56 +14,89 @@ def login_required(func):
             token = f.read()
             if token is None:
                 print('/nPlease Login!')
-                login()
+                quit()
             else:
-                func(*args, **kwargs, token = token)
+                func(*args, **kwargs, token=token)
     return wrapper
+
 
 def extract_response(response):
     data = json.loads(response.text)['data']
     error = json.loads(response.text)['error']
     info = json.loads(response.text)['info']
+    print(type(data))
+    if error is not None:
+        print('++++++ there was an error !!! ++++++')
+        raise Exception(f'Command Failed!:\n{error}')
+    return info, data, error
 
-    if not error:
-        print('++++++ action performed without error ++++++')
-        print(f'++++++ {info} ++++++')
-        return data
-    else:
-        print('/n++++++ !!! ++++++')
-        print(f"++++++ there was an error, {info}: {error} ++++++")
-        return False
+
+def plotter(data, info, data_as_list=False):
+    table = PrettyTable()
+    if data_as_list == False:
+        table.field_names = list(data.keys())
+        table.add_row(list(data.values()))
+    elif data_as_list == True:
+        table.field_names = list(data[0].keys())
+        for i in range(len(data)):
+            table.add_row(list(data[i].values()))
+    print(table.get_string(title=f"{info}"))
+
 
 @click.group()
 def main():
     pass
 
+
 @main.command()
-@click.option('--username', prompt='Enter your Email')
-@click.option('--password', prompt='Enter your Password')
-def login(username, password):
+def signup():
+    '''
+    Register a user
+    '''
+    inputEmail = input('Enter Your Email: ')
+    inputPassword1 = getpass('Enter Your Password: ')
+    inputPassword2 = getpass('Confirm Your Password: ')
+    if inputPassword1 != inputPassword2:
+        print('Passwords are mismatched!')
+        print('please retry')
+        quit()
+    elif inputPassword1 == inputPassword2:
+        client_name = input('Enter your name: ')
+        data = {'inputEmail': inputEmail,
+                'inputPassword': inputPassword2,
+                'client_name': client_name}
+        response = requests.request(method='POST',
+                                    url='http://127.0.0.1:5000/auth/signup',
+                                    data=data)
+        info, data, error = extract_response(response)
+        plotter(data, info)
+
+
+@main.command()
+def login():
     '''
     Login and generate token
     '''
+    username = input('Enter your Email: ')
+    password = getpass('Enter your password: ')
     response = requests.request(url='http://127.0.0.1:5000/auth/login',
                                 method='POST',
                                 data={'inputEmail': username,
-                                      'inputPassword': password}
-                                )
+                                      'inputPassword': password})
 
-    
-    error = json.loads(response.text)['error']
-    token = json.loads(response.text)['data']
+    info, data, error = extract_response(response)
     if error:
-        print('email or password is incorrect')
+        print(f'{error}')
         retry = input('RETRY? y/n ')
-        if retry == 'y':
-            login()
-        if retry == 'n':
+        if retry.lower() == 'y':
+            main()['login']
+        if retry.lower() == 'n':
             quit()
     f = open("token.txt", "w")
-    f.write(token)
+    f.write(data)
     f.close()
-    print('\n****\nTOKEN SAVED\nYou have successfully logged in!\n****')
+    if data:
+        print('\n****\nTOKEN SAVED\nYou have successfully logged in!\n****')
 
 
 @main.command()
@@ -73,64 +109,127 @@ def get_profile(token):
                                 url='http://127.0.0.1:5000/auth/current_user',
                                 headers={'JWT': token}
                                 )
-    data = extract_response(response)
-    if data:
-        print(f"current user: \nname :{data['client_name']}\nemail:{data['email']}")
-
-
+    info, data, error = extract_response(response)
+    plotter(data, info)
 
 
 @main.command()
-@click.option('--prompt', prompt = 'Logout? Y/N')
-def logout(prompt):
+def logout():
     '''
     Logout
     '''
-    if prompt.upper() == 'Y':
-        with open('token.txt', 'w') as f:
-            f.write("")
-            f.close()
-            quit()
-    elif prompt.upper() == 'N':
-        print('logout canceled')
-        print('Your current profile is: ')
-        get_profile()
-    else:
-        print('Wrong Command')
-        logout()
+    with open('token.txt', 'w') as f:
+        f.write("")
+        f.close()
+        print('You are now logged out!')
+        quit()
 
 
 @main.command()
-@click.option('--name', prompt = "Enter contact's name")
-@click.option('--number', prompt = "Enter contact's number")
+@click.option('--name', prompt="Enter contact's name")
+@click.option('--number', prompt="Enter contact's number")
 @login_required
 def add_contact(name, number, token):
+    '''
+    Add a contact to your phonebook
+    '''
     response = requests.post(
-                    url = 'http://127.0.0.1:5000/contacts/add',
-                    headers= {'JWT':token},
-                    data = {'Name':name,
-                            'Number':number}
-                            )
-
-    data = extract_response(response)
-    if data:
-        contact_id = json.loads(response.text)['data']['contact_id']
-        print(f'New contact added with id : {contact_id}')
-
-    while True:
-        retry = input('RETRY? y/n ')
-        if retry.upper() =='Y':
-            main()['add-contact']
-            break
-        elif retry.upper() == 'N':
-            quit()
-            break
-        else:
-            continue
+        url='http://127.0.0.1:5000/contacts/add',
+        headers={'JWT': token},
+        data={'Name': name,
+              'Number': number}
+    )
+    info, data, error = extract_response(response)
+    plotter(data, info)
 
 
+@main.command()
+@login_required
+def update_user(token):
+    """
+    Update username and password
+    """
+    new_email = input('Enter Your new Email ')
+    new_name = input('Enter your new username ')
+    new_password = getpass('Enter Your new password ')
+    data_dic = {}
+    if new_name is not None:
+        data_dic['new_name'] = new_name
+    if new_email is not None:
+        data_dic['new_email'] = new_email
+    if new_password is not None:
+        data_dic['new_password'] = new_password
+
+    response = requests.put(url='http://127.0.0.1:5000/auth/user_update',
+                            headers={'JWT': token},
+                            data=data_dic)
+
+    info, data, error = extract_response(response)
+    plotter(data, info)
 
 
+@main.command()
+@login_required
+def get_all_contacts(token):
+    '''
+    Retrieve all contacts of the user
+    '''
+    response = requests.request(method='GET',
+                                url='http://127.0.0.1:5000/contacts/all',
+                                headers={'JWT': token})
+    info, data, error = extract_response(response)
+    plotter(data, info, data_as_list=True)
+
+
+@main.command()
+@click.option('--contact_id', prompt = 'Enter contact id to delete')
+@login_required
+def delete_contact(token, contact_id):
+    '''
+    Delete a contact with the given ID
+    '''
+    response = requests.request(method='DELETE',
+                              url = f'http://127.0.0.1:5000/contacts/delete/{contact_id}',
+                            #   params = {'id':contact_id},
+                              headers = {'JWT':token}
+                              )
+    info, data, error = extract_response(response)
+    plotter(data, info)
+
+
+@main.command()
+@click.option('--contact_id', prompt = 'Enter contact id to get all activities associated with')
+@login_required
+def get_all_activity(token, contact_id):
+    '''
+    Retrieve all activites associated with a contact
+    '''
+    response = requests.get(url = f'http://127.0.0.1:5000/activity/{contact_id}',
+                            headers = {'JWT':token})
+    info, data, error = extract_response(response)
+    plotter(data, info, data_as_list = True)
+
+
+@main.command()
+@click.option('--contact_id', prompt = 'Enter contact id to add activity to: ')
+@click.option('--action', prompt = "Enter action's Type: ")
+@click.option('--description',default = "", prompt = 'Enter any description (optional): ')
+@click.option('--date', prompt = "Enter data in format: yyyy-mm-dd: ")
+@click.option('--time', prompt = "Enter time in format: hh:mm: ")
+@login_required
+def add_activity(token, contact_id, action, description, date, time):
+    '''
+    Add an activity to a contact
+    '''
+    response = requests.post(url = f'http://127.0.0.1:5000/activity/{contact_id}',
+                            headers = {'JWT':token},
+                            data = {'action':action,
+                                    'description':description,
+                                    'date':date,
+                                    'time':time})
+    info, data, error = extract_response(response)
+    plotter(data, info)
+            
 
 if __name__ == '__main__':
     main()
